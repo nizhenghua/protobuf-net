@@ -72,6 +72,32 @@ namespace protogen
                             codegen = CSharpCodeGenerator.Default;
                             exec = true;
                             break;
+                        case "--csharp_ancestor":                            
+                            CSharpCodeGenerator.AncestorName = rhs;
+                            exec = true;
+                            break;
+                        case "--csharp_overrideclear":
+                            bool.TryParse(rhs, out bool overrideClear);
+                            CSharpCodeGenerator.OverrideClear = overrideClear;
+                            exec = true;
+                            break;
+                        case "--csharp_nested":
+                            bool.TryParse(rhs, out bool nested);
+                            CSharpCodeGenerator.NestedClass = nested;
+                            exec = true;
+                            break;
+                        case "--csharp_protoid":
+                            CSharpCodeGenerator.Default.ProtoIdFile = rhs;
+                            exec = true;
+                            break;
+                        case "--csharp_protoid_namespace":
+                            CSharpCodeGenerator.Default.ProtoIdNamespace = rhs;
+                            exec = true;
+                            break;
+                        case "--csharp_fieldprefix":
+                            CSharpCodeGenerator.FieldPrefix = rhs;
+                            exec = true;
+                            break;
                         case "--vb_out":
                             outPath = rhs;
 #pragma warning disable CS0618
@@ -314,6 +340,13 @@ Parse PROTO_FILES and generate output based on the options given:
                               selected code generator.
   --package=PACKAGE           Add a default package (when no package is
                               specified); can use #FILE# and #DIR# tokens.
+
+  --csharp_ancestor=ANCESTOR    Set ancestor of csharp code.
+  --csharp_overrideclear={false|true}   Set if override clear function in csharp code.
+  --csharp_protoid=PROTOID_FILE Process protoid file.
+  --csharp_protoid_namespace=NAMESPACE The namespace of protoid code, default is 'Proto'.
+  --csharp_nested={false|true}  Use nested class replace namespace.
+  --csharp_fieldprefix=PREFIX  The prefix of private field.
 
 Note that PROTO_FILES can be *.proto or **/*.proto (recursive) when a single
 import location is used, to process all schema files found. In recursive mode,

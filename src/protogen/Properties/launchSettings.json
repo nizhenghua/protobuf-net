@@ -2,7 +2,7 @@
   "profiles": {
     "protogen": {
       "commandName": "Project",
-      "commandLineArgs": "--proto_path=c:\\code\\test *.proto --csharp_out=c:\\code\\test",
+      "commandLineArgs": "--proto_path=c:\\code\\test protoid.proto --csharp_out=c:\\code\\test --csharp_protoid=protoid.proto",
       "workingDirectory": "c:\\Code"
     }
   }

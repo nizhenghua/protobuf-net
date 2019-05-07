@@ -1717,6 +1717,8 @@ namespace Google.Protobuf.Reflection
 
         internal int MaxField => Parent?.MaxField ?? DefaultMaxField;
 
+        internal object ClearName { get; set; }
+
         internal static bool TryParse(ParserContext ctx, IMessage parent, bool isOneOf, out FieldDescriptorProto field)
         {
             void NotAllowedOneOf(ParserContext context, ErrorCode errorCode)

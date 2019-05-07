@@ -12,6 +12,14 @@ namespace ProtoBuf.Reflection
     /// </summary>
     public class CSharpCodeGenerator : CommonCodeGenerator
     {
+        public static bool OverrideClear = false;
+        public static bool NestedClass = false;
+        private static string DefaultAncestorName = "global::ProtoBuf.IExtensible";
+        public static string AncestorName = "global::ProtoBuf.IExtensible";
+        private static string SubMessageClassName = "SubId";
+        private static string SubMessageIdentifier = "subid";
+        private static string SubMessageEscapeIdentifier = "subid";
+
         /// <summary>
         /// Reusable code-generator instance
         /// </summary>
@@ -147,7 +155,14 @@ namespace ProtoBuf.Reflection
             if (!string.IsNullOrWhiteSpace(@namespace))
             {
                 state = @namespace;
-                ctx.WriteLine($"namespace {@namespace}");
+                if (NestedClass)
+                {
+                    ctx.WriteLine($"public partial class {@namespace}");
+                }
+                else
+                {
+                    ctx.WriteLine($"namespace {@namespace}");
+                }
                 ctx.WriteLine("{").Indent().WriteLine();
             }
         }
@@ -225,7 +240,7 @@ namespace ProtoBuf.Reflection
             tw.WriteLine(")]");
             WriteOptions(ctx, message.Options);
             tw = ctx.Write($"{GetAccess(GetAccess(message))} partial class {Escape(name)}");
-            tw.Write(" : global::ProtoBuf.IExtensible");
+            tw.Write($" : {AncestorName}");
             tw.WriteLine();
             ctx.WriteLine("{").Indent();
             if (message.Options?.MessageSetWireFormat == true)
@@ -233,16 +248,19 @@ namespace ProtoBuf.Reflection
                 ctx.WriteLine("#error message_set_wire_format is not currently implemented").WriteLine();
             }
 
-            ctx.WriteLine($"private global::ProtoBuf.IExtension {FieldPrefix}extensionData;")
-                .WriteLine($"global::ProtoBuf.IExtension global::ProtoBuf.IExtensible.GetExtensionObject(bool createIfMissing)");
+            if (AncestorName == DefaultAncestorName)
+            {
+                ctx.WriteLine($"private global::ProtoBuf.IExtension {FieldPrefix}extensionData;")
+                    .WriteLine($"global::ProtoBuf.IExtension global::ProtoBuf.IExtensible.GetExtensionObject(bool createIfMissing)");
 
-            if (ctx.Supports(CSharp6))
-            {
-                ctx.Indent().WriteLine($"=> global::ProtoBuf.Extensible.GetExtensionObject(ref {FieldPrefix}extensionData, createIfMissing);").Outdent().WriteLine();
-            }
-            else
-            {
-                ctx.WriteLine("{").Indent().WriteLine($"return global::ProtoBuf.Extensible.GetExtensionObject(ref {FieldPrefix}extensionData, createIfMissing);").Outdent().WriteLine("}");
+                if (ctx.Supports(CSharp6))
+                {
+                    ctx.Indent().WriteLine($"=> global::ProtoBuf.Extensible.GetExtensionObject(ref {FieldPrefix}extensionData, createIfMissing);").Outdent().WriteLine();
+                }
+                else
+                {
+                    ctx.WriteLine("{").Indent().WriteLine($"return global::ProtoBuf.Extensible.GetExtensionObject(ref {FieldPrefix}extensionData, createIfMissing);").Outdent().WriteLine("}");
+                }
             }
         }
 
@@ -255,7 +273,8 @@ namespace ProtoBuf.Reflection
             }
         }
 
-        private const string FieldPrefix = "__pbn__";
+        //private const string FieldPrefix = "__pbn__";
+        public static string FieldPrefix = "__pbn__";
 
         /// <summary>
         /// Get the language specific keyword representing an access level
@@ -417,6 +436,7 @@ namespace ProtoBuf.Reflection
         protected override void WriteField(GeneratorContext ctx, FieldDescriptorProto field, ref object state, OneOfStub[] oneOfs)
         {
             var name = ctx.NameNormalizer.GetName(field);
+            field.ClearName = Escape(name);
             var tw = ctx.Write($"[global::ProtoBuf.ProtoMember({field.Number}");
             if (name != field.Name)
             {
@@ -537,23 +557,24 @@ namespace ProtoBuf.Reflection
                 ctx.WriteLine($"set {{ {fieldName} = new global::ProtoBuf.{unionType}({field.Number}, {cast}value); }}")
                     .Outdent().WriteLine("}");
 
-                if (ctx.Supports(CSharp6))
-                {
-                    ctx.WriteLine($"{GetAccess(GetAccess(field))} bool ShouldSerialize{name}() => {fieldName}.Is({field.Number});")
-                    .WriteLine($"{GetAccess(GetAccess(field))} void Reset{name}() => global::ProtoBuf.{unionType}.Reset(ref {fieldName}, {field.Number});");
-                }
-                else
-                {
-                    ctx.WriteLine($"{GetAccess(GetAccess(field))} bool ShouldSerialize{name}()").WriteLine("{").Indent()
-                        .WriteLine($"return {fieldName}.Is({field.Number});").Outdent().WriteLine("}")
-                        .WriteLine($"{GetAccess(GetAccess(field))} void Reset{name}()").WriteLine("{").Indent()
-                        .WriteLine($"global::ProtoBuf.{unionType}.Reset(ref {fieldName}, {field.Number});").Outdent().WriteLine("}");
-                }
+                //if (ctx.Supports(CSharp6))
+                //{
+                //    ctx.WriteLine($"{GetAccess(GetAccess(field))} bool ShouldSerialize{name}() => {fieldName}.Is({field.Number});")
+                //    .WriteLine($"{GetAccess(GetAccess(field))} void Reset{name}() => global::ProtoBuf.{unionType}.Reset(ref {fieldName}, {field.Number});");
+                //}
+                //else
+                //{
+                //    ctx.WriteLine($"{GetAccess(GetAccess(field))} bool ShouldSerialize{name}()").WriteLine("{").Indent()
+                //        .WriteLine($"return {fieldName}.Is({field.Number});").Outdent().WriteLine("}")
+                //        .WriteLine($"{GetAccess(GetAccess(field))} void Reset{name}()").WriteLine("{").Indent()
+                //        .WriteLine($"global::ProtoBuf.{unionType}.Reset(ref {fieldName}, {field.Number});").Outdent().WriteLine("}");
+                //}
 
                 if (oneOf.IsFirst())
                 {
                     ctx.WriteLine().WriteLine($"private global::ProtoBuf.{unionType} {fieldName};");
                 }
+                field.ClearName = fieldName;
             }
             else if (explicitValues)
             {
@@ -584,27 +605,66 @@ namespace ProtoBuf.Reflection
                 tw.WriteLine("; }");
                 ctx.WriteLine($"set {{ {fieldName} = value; }}")
                     .Outdent().WriteLine("}");
-                if (ctx.Supports(CSharp6))
-                {
-                    ctx.WriteLine($"{GetAccess(GetAccess(field))} bool ShouldSerialize{name}() => {fieldName} != null;")
-                    .WriteLine($"{GetAccess(GetAccess(field))} void Reset{name}() => {fieldName} = null;");
-                }
-                else
-                {
-                    ctx.WriteLine($"{GetAccess(GetAccess(field))} bool ShouldSerialize{name}()").WriteLine("{").Indent()
-                        .WriteLine($"return {fieldName} != null;").Outdent().WriteLine("}")
-                        .WriteLine($"{GetAccess(GetAccess(field))} void Reset{name}()").WriteLine("{").Indent()
-                        .WriteLine($"{fieldName} = null;").Outdent().WriteLine("}");
-                }
+                //if (ctx.Supports(CSharp6))
+                //{
+                //    ctx.WriteLine($"{GetAccess(GetAccess(field))} bool ShouldSerialize{name}() => {fieldName} != null;")
+                //    .WriteLine($"{GetAccess(GetAccess(field))} void Reset{name}() => {fieldName} = null;");
+                //}
+                //else
+                //{
+                //    ctx.WriteLine($"{GetAccess(GetAccess(field))} bool ShouldSerialize{name}()").WriteLine("{").Indent()
+                //        .WriteLine($"return {fieldName} != null;").Outdent().WriteLine("}")
+                //        .WriteLine($"{GetAccess(GetAccess(field))} void Reset{name}()").WriteLine("{").Indent()
+                //        .WriteLine($"{fieldName} = null;").Outdent().WriteLine("}");
+                //}
                 ctx.WriteLine($"private {fieldType} {fieldName};");
+                field.ClearName = fieldName;
             }
             else
             {
-                tw = ctx.Write($"{GetAccess(GetAccess(field))} {typeName} {Escape(name)} {{ get; set; }}");
-                if (!string.IsNullOrWhiteSpace(defaultValue) && ctx.Supports(CSharp6)) tw.Write($" = {defaultValue};");
-                tw.WriteLine();
+                // check if use sub message mode
+                if (field.Name == SubMessageIdentifier)
+                {
+                    SubMessageEscapeIdentifier = Escape(name);
+                    tw = ctx.Write($"{GetAccess(GetAccess(field))} {typeName} {Escape(name)} {{ get; private set; }}");
+                    if (!string.IsNullOrWhiteSpace(defaultValue) && ctx.Supports(CSharp6)) tw.Write($" = {defaultValue};");
+                }
+                else
+                {
+                    if (field.type == FieldDescriptorProto.Type.TypeMessage/* && field.Parent != null && field.Parent.Fields?[0].label == FieldDescriptorProto.Label.LabelRequired && field.Parent.Fields?[0].Name == SubMessageIdentifier*/)
+                    {
+                        bool hasSubId = field.Parent != null && field.Parent.Fields?[0].label == FieldDescriptorProto.Label.LabelRequired && field.Parent.Fields?[0].Name == SubMessageIdentifier;
+                        string privateName = Escape(name); // $"{FieldPrefix}{name}";
+                        field.ClearName = privateName;
+                        
+                        if (hasSubId)
+                        {
+                            ctx.WriteLine($"public {typeName} {Escape(name)} {{ get; set; }}");
+                            if (!string.IsNullOrWhiteSpace(defaultValue) && ctx.Supports(CSharp6)) tw.Write($" = {defaultValue};");
+                            tw = ctx.Write($"{GetAccess(GetAccess(field))} {typeName} get_{name}(bool dummy = false) {{ if ({privateName} == null) {privateName} = new {typeName}(); {SubMessageEscapeIdentifier} = {field.Number}; return {privateName}; }}");
+                            tw.WriteLine();
+                            tw = ctx.Write($"{GetAccess(GetAccess(field))} bool has_{name}() {{ return {privateName} != null; }}");
+                        }
+                        else
+                        {
+                            ctx.WriteLine($"public {typeName} {Escape(name)} {{ private get; set; }}");
+                            if (!string.IsNullOrWhiteSpace(defaultValue) && ctx.Supports(CSharp6)) tw.Write($" = {defaultValue};");
+                            tw = ctx.Write($"{GetAccess(GetAccess(field))} {typeName} get_{name}(bool dummy = false) {{ if ({privateName} == null) {privateName} = new {typeName}(); return {privateName}; }}");
+                            tw.WriteLine();
+                            tw = ctx.Write($"{GetAccess(GetAccess(field))} bool has_{name}() {{ return {privateName} != null; }}");
+                        }                        
+                    }
+                    else
+                    {
+                        tw = ctx.Write($"{GetAccess(GetAccess(field))} {typeName} {Escape(name)} {{ get; set; }}");
+                        if (!string.IsNullOrWhiteSpace(defaultValue) && ctx.Supports(CSharp6)) tw.Write($" = {defaultValue};");
+                    }
+                    ctx.WriteLine();
+                }
             }
             ctx.WriteLine();
+            WriteSubIdClass(ctx, field, ref state, oneOfs);
+            WriteClearCodes(ctx, field, ref state, oneOfs);
         }
 
         private static string GetOneOfFieldName(OneofDescriptorProto obj) => FieldPrefix + obj.Name;
@@ -753,25 +813,26 @@ namespace ProtoBuf.Reflection
 
         private static bool UseArray(FieldDescriptorProto field)
         {
-            switch (field.type)
-            {
-                case FieldDescriptorProto.Type.TypeBool:
-                case FieldDescriptorProto.Type.TypeDouble:
-                case FieldDescriptorProto.Type.TypeFixed32:
-                case FieldDescriptorProto.Type.TypeFixed64:
-                case FieldDescriptorProto.Type.TypeFloat:
-                case FieldDescriptorProto.Type.TypeInt32:
-                case FieldDescriptorProto.Type.TypeInt64:
-                case FieldDescriptorProto.Type.TypeSfixed32:
-                case FieldDescriptorProto.Type.TypeSfixed64:
-                case FieldDescriptorProto.Type.TypeSint32:
-                case FieldDescriptorProto.Type.TypeSint64:
-                case FieldDescriptorProto.Type.TypeUint32:
-                case FieldDescriptorProto.Type.TypeUint64:
-                    return true;
-                default:
-                    return false;
-            }
+            return false;
+            //switch (field.type)
+            //{
+            //    case FieldDescriptorProto.Type.TypeBool:
+            //    case FieldDescriptorProto.Type.TypeDouble:
+            //    case FieldDescriptorProto.Type.TypeFixed32:
+            //    case FieldDescriptorProto.Type.TypeFixed64:
+            //    case FieldDescriptorProto.Type.TypeFloat:
+            //    case FieldDescriptorProto.Type.TypeInt32:
+            //    case FieldDescriptorProto.Type.TypeInt64:
+            //    case FieldDescriptorProto.Type.TypeSfixed32:
+            //    case FieldDescriptorProto.Type.TypeSfixed64:
+            //    case FieldDescriptorProto.Type.TypeSint32:
+            //    case FieldDescriptorProto.Type.TypeSint64:
+            //    case FieldDescriptorProto.Type.TypeUint32:
+            //    case FieldDescriptorProto.Type.TypeUint64:
+            //        return true;
+            //    default:
+            //        return false;
+            //}
         }
 
         private string GetTypeName(GeneratorContext ctx, FieldDescriptorProto field, out string dataFormat, out bool isMap,
@@ -973,6 +1034,75 @@ namespace ProtoBuf.Reflection
                 }
             }
             return sb.ToString();
+        }
+
+        private void WriteSubIdClass(GeneratorContext ctx, FieldDescriptorProto field, ref object state, OneOfStub[] oneOfs)
+        {
+            if (field.Parent != null && field.Parent.Fields.Last() == field && field.Parent.Fields?[0].label == FieldDescriptorProto.Label.LabelRequired && field.Parent.Fields?[0].Name == SubMessageIdentifier)
+            {
+                ctx.WriteLine($"public class {SubMessageClassName}");
+                ctx.WriteLine("{");
+                ctx.Indent();
+                foreach (var item in field.Parent.Fields)
+                {
+                    if (item.Name == SubMessageIdentifier)
+                    {
+                        continue;
+                    }
+                    if (item.label != FieldDescriptorProto.Label.LabelOptional)
+                    {
+                        continue;
+                    }                    
+                    ctx.WriteLine($"public const int {ctx.NameNormalizer.GetName(item)} = {item.Number};");
+                }
+                ctx.Outdent();
+                ctx.WriteLine("}");
+                ctx.WriteLine();
+            }
+        }
+
+        private void WriteClearCodes(GeneratorContext ctx, FieldDescriptorProto field, ref object state, OneOfStub[] oneOfs)
+        {
+            if (field.Parent != null && field.Parent.Fields.Last() == field)
+            {
+                var tw = OverrideClear ? ctx.Write($"public override void Clear()") : ctx.Write($"public void Clear()");
+                ctx.WriteLine();
+                ctx.WriteLine("{");
+                ctx.Indent();
+                foreach (var item in field.Parent.Fields)
+                {
+                    var name = item.ClearName;
+                    switch (item.type)
+                    {
+                        case FieldDescriptorProto.Type.TypeMessage:
+                            ctx.Write($"{name}.Clear();");
+                            break;
+                        default:
+                            var tn = GetTypeName(ctx, item, out var fromat, out var map);
+                            string dv = GetDefaultValue(ctx, item, tn);
+                            if (string.IsNullOrWhiteSpace(dv))
+                            {
+                                if (item.label == FieldDescriptorProto.Label.LabelRepeated)
+                                {
+                                    ctx.Write($"{name}.Clear();");
+                                }
+                                else
+                                {
+                                    ctx.Write($"{name} = default({tn});");
+                                }
+                            }
+                            else
+                            {
+                                ctx.Write($"{name} = {dv};");
+                            }
+                            break;
+                    }
+                    tw.WriteLine();
+                }
+                ctx.Outdent();
+                ctx.WriteLine("}");
+                ctx.WriteLine();
+            }
         }
 
         private const string WellKnownTypeTimestamp = ".google.protobuf.Timestamp",
