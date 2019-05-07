@@ -1069,13 +1069,14 @@ namespace ProtoBuf.Reflection
                 ctx.WriteLine();
                 ctx.WriteLine("{");
                 ctx.Indent();
+                List<string> messages = new List<string>();
                 foreach (var item in field.Parent.Fields)
                 {
                     var name = item.ClearName;
                     switch (item.type)
                     {
-                        case FieldDescriptorProto.Type.TypeMessage:
-                            ctx.Write($"{name}.Clear();");
+                        case FieldDescriptorProto.Type.TypeMessage:                            
+                            messages.Add(name);
                             break;
                         default:
                             var tn = GetTypeName(ctx, item, out var fromat, out var map);
@@ -1084,20 +1085,40 @@ namespace ProtoBuf.Reflection
                             {
                                 if (item.label == FieldDescriptorProto.Label.LabelRepeated)
                                 {
-                                    ctx.Write($"{name}.Clear();");
+                                    messages.Add(name);
                                 }
                                 else
                                 {
-                                    ctx.Write($"{name} = default({tn});");
+                                    var result = ctx.Supports(CSharp7_1) ? ctx.WriteLine($"{name} = default;") : ctx.WriteLine($"{name} = default({tn});");
                                 }
                             }
                             else
                             {
-                                ctx.Write($"{name} = {dv};");
+                                if (item.type == FieldDescriptorProto.Type.TypeString)
+                                {
+                                    var result = ctx.Supports(CSharp7_1) ? ctx.WriteLine($"{name} = default;") : ctx.WriteLine($"{name} = default(string);");
+                                }
+                                else
+                                {
+                                    ctx.WriteLine($"{name} = {dv};");
+                                }
                             }
                             break;
                     }
-                    tw.WriteLine();
+                }
+                if (messages.Count > 0)
+                {
+                    foreach (var name in messages)
+                    {
+                        if (ctx.Supports(CSharp6))
+                        {
+                            ctx.WriteLine($"{name}?.Clear();");
+                        }
+                        else
+                        {
+                            ctx.WriteLine($"if({name} != null) {{ {name}.Clear(); }}");
+                        }
+                    }
                 }
                 ctx.Outdent();
                 ctx.WriteLine("}");
