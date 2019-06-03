@@ -229,13 +229,13 @@ namespace ProtoBuf.Reflection
                 ctx.WriteLine();
                 ctx.WriteLine("#pragma warning disable 0612, 1591, 3021");
                 ctx.WriteLine();
-                if (!string.IsNullOrWhiteSpace(@namespace))
-                {
-                    ctx.WriteLine($"namespace {@namespace}");
-                    ctx.WriteLine("{");
-                    ctx.WriteLine();
-                    ctx.Indent();
-                }
+                //if (!string.IsNullOrWhiteSpace(@namespace))
+                //{
+                //    ctx.WriteLine($"namespace {@namespace}");
+                //    ctx.WriteLine("{");
+                //    ctx.WriteLine();
+                //    ctx.Indent();
+                //}
                 var className = ctx.NameNormalizer.GetName(message);
                 ctx.WriteLine($"public partial class {className}");
                 ctx.WriteLine("{");
@@ -262,12 +262,12 @@ namespace ProtoBuf.Reflection
                 ctx.Outdent();
                 ctx.WriteLine("}");
 
-                if (!string.IsNullOrWhiteSpace(@namespace))
-                {
-                    ctx.Indent();
-                    ctx.WriteLine();
-                    ctx.WriteLine("}");
-                }
+                //if (!string.IsNullOrWhiteSpace(@namespace))
+                //{
+                //    ctx.Indent();
+                //    ctx.WriteLine();
+                //    ctx.WriteLine("}");
+                //}
                 ctx.WriteLine();
                 ctx.WriteLine("#pragma warning restore 0612, 1591, 3021");
             }
