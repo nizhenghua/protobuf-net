@@ -636,7 +636,7 @@ namespace ProtoBuf.Reflection
                         bool hasSubId = field.Parent != null && field.Parent.Fields?[0].label == FieldDescriptorProto.Label.LabelRequired && field.Parent.Fields?[0].Name == SubMessageIdentifier;
                         string privateName = Escape(name); // $"{FieldPrefix}{name}";
                         field.ClearName = privateName;
-                        
+
                         if (hasSubId)
                         {
                             ctx.WriteLine($"public {typeName} {Escape(name)} {{ get; set; }}");
@@ -652,7 +652,7 @@ namespace ProtoBuf.Reflection
                             tw = ctx.Write($"{GetAccess(GetAccess(field))} {typeName} get_{name}(bool dummy = false) {{ if ({privateName} == null) {privateName} = new {typeName}(); return {privateName}; }}");
                             tw.WriteLine();
                             tw = ctx.Write($"{GetAccess(GetAccess(field))} bool has_{name}() {{ return {privateName} != null; }}");
-                        }                        
+                        }
                     }
                     else
                     {
@@ -726,7 +726,7 @@ namespace ProtoBuf.Reflection
                 bool isRepeated = field.label == FieldDescriptorProto.Label.LabelRepeated;
 
                 var getMethodName = isRepeated ? nameof(Extensible.GetValues) : nameof(Extensible.GetValue);
-                if(isRepeated) ctx.WriteLine($"{GetAccess(GetAccess(field))} static global::System.Collections.Generic.IEnumerable<{nonNullableType}> Get{name}({@this}{extendee} obj)");
+                if (isRepeated) ctx.WriteLine($"{GetAccess(GetAccess(field))} static global::System.Collections.Generic.IEnumerable<{nonNullableType}> Get{name}({@this}{extendee} obj)");
                 else ctx.WriteLine($"{GetAccess(GetAccess(field))} static {type} Get{name}({@this}{extendee} obj)");
                 if (ctx.Supports(CSharp6))
                 {
@@ -1052,7 +1052,7 @@ namespace ProtoBuf.Reflection
                     if (item.label != FieldDescriptorProto.Label.LabelOptional)
                     {
                         continue;
-                    }                    
+                    }
                     ctx.WriteLine($"public const int {ctx.NameNormalizer.GetName(item)} = {item.Number};");
                 }
                 ctx.Outdent();
@@ -1075,9 +1075,16 @@ namespace ProtoBuf.Reflection
                     var name = item.ClearName;
                     switch (item.type)
                     {
-                        case FieldDescriptorProto.Type.TypeMessage:                            
-                            messages.Add(name);
-                            break;
+                        //case FieldDescriptorProto.Type.TypeMessage:
+                        //    if (item.label == FieldDescriptorProto.Label.LabelRepeated)
+                        //    {
+                        //        messages.Add(name);
+                        //    }
+                        //    else
+                        //    {
+                        //        ctx.WriteLine($"{name} = null;");
+                        //    }
+                        //    break;
                         default:
                             var tn = GetTypeName(ctx, item, out var fromat, out var map);
                             string dv = GetDefaultValue(ctx, item, tn);
@@ -1106,18 +1113,16 @@ namespace ProtoBuf.Reflection
                             break;
                     }
                 }
-                if (messages.Count > 0)
+
+                foreach (var name in messages)
                 {
-                    foreach (var name in messages)
+                    if (ctx.Supports(CSharp6))
                     {
-                        if (ctx.Supports(CSharp6))
-                        {
-                            ctx.WriteLine($"{name}?.Clear();");
-                        }
-                        else
-                        {
-                            ctx.WriteLine($"if({name} != null) {{ {name}.Clear(); }}");
-                        }
+                        ctx.WriteLine($"{name}?.Clear();");
+                    }
+                    else
+                    {
+                        ctx.WriteLine($"if({name} != null) {{ {name}.Clear(); }}");
                     }
                 }
                 ctx.Outdent();
